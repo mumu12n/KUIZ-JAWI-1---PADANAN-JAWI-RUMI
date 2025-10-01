@@ -1,0 +1,491 @@
+<!doctype html>
+<html lang="ms">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Kuiz — Single File (Images + Shuffle + Leaderboard)</title>
+
+  <!-- Fonts: Arabic-friendly + UI -->
+  <link href="https://fonts.googleapis.com/css2?family=Amiri&family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
+
+  <style>
+    :root{
+      --bg: #f7f7f8;
+      --card: #ffffff;
+      --accent: #0f62fe;
+      --ok: #16a34a;
+      --bad: #dc2626;
+      --muted: #6b7280;
+      --radius: 14px;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0;
+      font-family:"Poppins",system-ui,-apple-system,"Segoe UI",Roboto,Arial;
+      background:linear-gradient(180deg,#eef2ff 0%,var(--bg) 100%);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding:18px;
+      -webkit-font-smoothing:antialiased;
+    }
+
+    .app{
+      width:100%;
+      max-width:760px;
+      background:var(--card);
+      border-radius:var(--radius);
+      box-shadow:0 18px 40px rgba(16,24,40,0.12);
+      overflow:hidden;
+    }
+
+    header{
+      padding:18px 22px;
+      border-bottom:1px solid #f1f5f9;
+      display:flex;
+      align-items:center;
+      gap:14px;
+    }
+    header h1{
+      margin:0;
+      font-size:1.15rem;
+      font-weight:600;
+      color:#0f172a;
+    }
+    header p{margin:0;color:var(--muted);font-size:0.95rem}
+
+    .main{padding:22px}
+
+    /* Start area */
+    .start-group{display:grid;gap:12px}
+    input[type="text"]{
+      width:100%;
+      padding:12px 14px;
+      border-radius:10px;
+      border:1px solid #e6e8eb;
+      font-size:1.05rem;
+    }
+    .row{display:flex;gap:10px}
+    .btn{
+      padding:12px 14px;
+      border-radius:10px;
+      border:0;
+      cursor:pointer;
+      font-weight:600;
+      font-size:1.03rem;
+    }
+    .btn.primary{background:var(--accent);color:white;flex:1}
+    .btn.ghost{background:transparent;border:1px solid #e5e7eb;color:#0f172a;flex:1}
+
+    /* Quiz card */
+    .card{
+      padding:18px;
+      border-radius:12px;
+      background:linear-gradient(180deg,#ffffff 0%, #fbfbff 100%);
+      border:1px solid #f3f4f6;
+    }
+    .meta{color:var(--muted);font-size:0.95rem;margin-bottom:6px}
+    .qtext{
+      font-size:2rem;
+      margin:6px 0 12px 0;
+      line-height:1.05;
+      font-weight:600;
+    }
+    .qtext.ar { font-family:"Amiri", serif; direction:rtl; text-align:right; font-size:2.6rem; }
+    .qimage{
+      display:block;
+      max-width:320px;
+      width:100%;
+      margin:12px auto;
+      border-radius:10px;
+      box-shadow:0 6px 18px rgba(2,6,23,0.06);
+    }
+
+    .options{display:flex;flex-direction:column;gap:10px;margin-top:8px}
+    .option{
+      padding:12px 14px;
+      border-radius:10px;
+      border:1px solid #eef2f6;
+      background:#fbfdff;
+      font-size:1.05rem;
+      text-align:left;
+      cursor:pointer;
+      transition:transform .06s ease, box-shadow .06s ease;
+    }
+    .option:active{transform:translateY(1px)}
+    .option.disabled{pointer-events:none;opacity:0.96}
+    .option.correct{background:#ecfdf5;border-color:rgba(34,197,94,0.12);box-shadow:0 8px 20px rgba(34,197,94,0.06)}
+    .option.wrong{background:#fff1f2;border-color:rgba(239,68,68,0.12);box-shadow:0 8px 20px rgba(239,68,68,0.04)}
+
+    .feedback{margin-top:10px;font-weight:700}
+
+    .controls{display:flex;gap:8px;margin-top:14px;align-items:center}
+
+    /* End / Leaderboard */
+    .leaderboard{
+      margin-top:12px;padding:12px;border-radius:10px;background:#fffafb;border:1px solid #fff1d6;
+    }
+
+    .small{font-size:0.92rem;color:var(--muted)}
+
+    @media (max-width:480px){
+      .qtext{font-size:1.4rem}
+      .qtext.ar{font-size:2rem}
+    }
+  </style>
+</head>
+<body>
+  <div class="app" role="application" aria-label="Kuiz">
+    <header>
+      <div>
+        <h1>Kuiz Interaktif</h1>
+        <p class="small">Sokong gambar, Arab, shuffle, dan leaderboard.</p>
+      </div>
+    </header>
+
+    <div class="main">
+      <!-- START -->
+      <div id="start" aria-hidden="false">
+        <div class="start-group">
+          <label class="small" for="playerName">Masukkan nama anda (akan dipaparkan di leaderboard)</label>
+          <input id="playerName" type="text" placeholder="Contoh: Aisyah / Ahmad" maxlength="40" />
+          <div class="row">
+            <button id="btnStart" class="btn primary">Mula Kuiz</button>
+            <button id="btnShowBoard" class="btn ghost">Lihat Leaderboard</button>
+          </div>
+          <div class="small">Nota: Soalan akan diacak setiap kali kuiz dimulakan.</div>
+        </div>
+      </div>
+
+      <!-- QUIZ -->
+      <div id="quiz" style="display:none;">
+        <div class="card" role="region" aria-live="polite">
+          <div id="qMeta" class="meta"></div>
+          <div id="qText" class="qtext">Soalan di sini</div>
+          <img id="qImg" class="qimage" src="" alt="" style="display:none;" />
+          <div id="options" class="options" role="list"></div>
+
+          <div id="feedback" class="feedback" aria-live="polite"></div>
+
+          <div class="controls">
+            <button id="btnNext" class="btn ghost" style="display:none">Soalan Seterusnya</button>
+            <button id="btnEnd" class="btn ghost" style="display:inline-block">Tamatkan</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- END / LEADERBOARD -->
+      <div id="end" style="display:none;">
+        <div>
+          <h2 style="margin:6px 0 4px 0;">Keputusan</h2>
+          <div id="finalScore" style="font-weight:700;font-size:1.15rem"></div>
+        </div>
+
+        <div class="leaderboard" role="region" aria-live="polite">
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <strong>Leaderboard (Top 20)</strong>
+            <div style="display:flex;gap:8px;">
+              <button id="btnClear" class="btn ghost">Padam</button>
+              <button id="btnRestart" class="btn primary">Main Lagi</button>
+            </div>
+          </div>
+          <ol id="leaderList" style="margin-top:10px;"></ol>
+          <p class="small" style="margin-top:10px;">Nota: Leaderboard disimpan secara tempatan pada peranti ini. Untuk leaderboard bersama, kita boleh sambungkan ke Firebase.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+/* --------------------------
+   EDIT QUESTIONS BELOW
+   - type: 'mcq' or 'tf'
+   - text: string (can include Arabic/Jawi)
+   - isArabic: true for RTL Arabic font display (optional)
+   - image: optional URL (or null)
+   - choices: array (for mcq)
+   - correct: index (0-based for mcq) or boolean for tf
+   Example:
+   { id:1, type:'mcq', text:'ز', isArabic:true, image: 'https://...', choices:['B','A','S'], correct:0 }
+   -------------------------- */
+const QUESTIONS = [
+  { id: 1, type: 'mcq', text: 'ز', isArabic: true, image: 'https://upload.wikimedia.org/wikipedia/commons/0/0e/Jawi_A.png', choices: ['B','A','S'], correct: 0 },
+  { id: 2, type: 'tf', text: 'Air bewarna biru?', isArabic:false, image: null, correct: true },
+  { id: 3, type: 'mcq', text: 'Siapakah yang menulis Hikayat?', isArabic:false, image: null, choices: ['Tun Seri Lanang','Hang Tuah','Tun Teja'], correct: 0 },
+  // Add more questions here...
+];
+
+/* --------------------------
+   Config / Storage key
+   -------------------------- */
+const STORAGE_KEY = 'kuiz_leaderboard_v1';
+
+/* --------------------------
+   Utilities
+   -------------------------- */
+function $(id){ return document.getElementById(id); }
+
+function shuffleArray(arr){
+  // Fisher-Yates (shallow copy)
+  const a = arr.slice();
+  for(let i=a.length-1;i>0;i--){
+    const j = Math.floor(Math.random()*(i+1));
+    [a[i],a[j]] = [a[j],a[i]];
+  }
+  return a;
+}
+
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, (m) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+}
+
+/* --------------------------
+   State
+   -------------------------- */
+let questions = []; // will be shuffled copy
+let currentIndex = 0;
+let score = 0;
+let playerName = '';
+
+/* --------------------------
+   Elements
+   -------------------------- */
+const startEl = $('start');
+const quizEl = $('quiz');
+const endEl = $('end');
+
+const playerNameInput = $('playerName');
+const btnStart = $('btnStart');
+const btnShowBoard = $('btnShowBoard');
+
+const qMeta = $('qMeta');
+const qText = $('qText');
+const qImg = $('qImg');
+const optionsEl = $('options');
+const feedbackEl = $('feedback');
+const btnNext = $('btnNext');
+const btnEnd = $('btnEnd');
+
+const finalScoreEl = $('finalScore');
+const leaderList = $('leaderList');
+const btnClear = $('btnClear');
+const btnRestart = $('btnRestart');
+
+/* --------------------------
+   Event Listeners
+   -------------------------- */
+btnStart.addEventListener('click', startQuiz);
+btnShowBoard.addEventListener('click', showLeaderboardOnly);
+btnNext.addEventListener('click', goNext);
+btnEnd.addEventListener('click', finishQuizEarly);
+btnClear.addEventListener('click', clearLeaderboard);
+btnRestart.addEventListener('click', restartToStart);
+
+/* --------------------------
+   Quiz Flow
+   -------------------------- */
+function startQuiz(){
+  const name = playerNameInput.value.trim();
+  if(!name){
+    alert('Sila masukkan nama anda sebelum mula.');
+    playerNameInput.focus();
+    return;
+  }
+  playerName = name;
+  // make a shuffled copy of the questions
+  questions = shuffleArray(QUESTIONS);
+  // reset state
+  currentIndex = 0;
+  score = 0;
+  // show quiz
+  showScreen('quiz');
+  renderQuestion();
+}
+
+function showScreen(screen){
+  startEl.style.display = screen === 'start' ? 'block' : 'none';
+  quizEl.style.display = screen === 'quiz' ? 'block' : 'none';
+  endEl.style.display = screen === 'end' ? 'block' : 'none';
+  // clear live regions
+  feedbackEl.textContent = '';
+}
+
+function renderQuestion(){
+  const q = questions[currentIndex];
+  qMeta.textContent = `Soalan ${currentIndex+1} / ${questions.length}`;
+  qText.className = 'qtext' + (q.isArabic ? ' ar' : '');
+  qText.textContent = q.text;
+
+  // image
+  if(q.image){
+    qImg.src = q.image;
+    qImg.alt = q.isArabic ? 'Imej soalan (Arab)' : 'Question image';
+    qImg.style.display = 'block';
+  } else {
+    qImg.style.display = 'none';
+    qImg.src = '';
+    qImg.alt = '';
+  }
+
+  // options
+  optionsEl.innerHTML = '';
+  feedbackEl.textContent = '';
+  btnNext.style.display = 'none';
+  btnEnd.style.display = 'inline-block';
+
+  if(q.type === 'mcq'){
+    q.choices.forEach((c, idx) => {
+      const b = document.createElement('button');
+      b.className = 'option';
+      b.type = 'button';
+      b.textContent = c;
+      b.dataset.index = idx;
+      b.addEventListener('click', () => handleMCQ(b, idx, q.correct));
+      optionsEl.appendChild(b);
+    });
+  } else if(q.type === 'tf'){
+    ['Betul','Salah'].forEach((label, i) => {
+      const b = document.createElement('button');
+      b.className = 'option';
+      b.type = 'button';
+      b.textContent = label;
+      b.dataset.tf = i===0 ? 'true' : 'false';
+      b.addEventListener('click', () => handleTF(b, i===0, q.correct));
+      optionsEl.appendChild(b);
+    });
+  } else {
+    optionsEl.innerHTML = '<div class="small">Soalan tidak sah (type salah).</div>';
+  }
+}
+
+function disableAllOptions(){
+  const all = optionsEl.querySelectorAll('.option');
+  all.forEach(x => x.classList.add('disabled'));
+}
+
+function handleMCQ(btn, chosenIndex, correctIndex){
+  disableAllOptions();
+  if(chosenIndex === correctIndex){
+    btn.classList.add('correct');
+    feedbackEl.textContent = 'Betul ✔';
+    score++;
+  } else {
+    btn.classList.add('wrong');
+    feedbackEl.textContent = 'Salah ✖';
+    // highlight correct
+    const all = optionsEl.querySelectorAll('.option');
+    const correctBtn = Array.from(all).find(x => Number(x.dataset.index) === correctIndex);
+    if(correctBtn) correctBtn.classList.add('correct');
+  }
+  btnNext.style.display = 'inline-block';
+  btnEnd.style.display = 'none';
+}
+
+function handleTF(btn, chosenBool, correctBool){
+  disableAllOptions();
+  if(chosenBool === correctBool){
+    btn.classList.add('correct');
+    feedbackEl.textContent = 'Betul ✔';
+    score++;
+  } else {
+    btn.classList.add('wrong');
+    feedbackEl.textContent = 'Salah ✖';
+    // show correct
+    const all = optionsEl.querySelectorAll('.option');
+    const correctEl = Array.from(all).find((b, i) => (i===0) === correctBool);
+    if(correctEl) correctEl.classList.add('correct');
+  }
+  btnNext.style.display = 'inline-block';
+  btnEnd.style.display = 'none';
+}
+
+function goNext(){
+  currentIndex++;
+  if(currentIndex >= questions.length){
+    finishQuiz();
+  } else {
+    renderQuestion();
+  }
+}
+
+/* End early (user clicks Tamatkan) */
+function finishQuizEarly(){
+  if(!confirm('Anda pasti mahu tamatkan kuiz sekarang? Anda akan melihat keputusan terkini.')) return;
+  finishQuiz();
+}
+
+/* Finish normally */
+function finishQuiz(){
+  showScreen('end');
+  finalScoreEl.textContent = `${playerName} — ${score} / ${questions.length}`;
+
+  saveToLeaderboard({ name: playerName, score, total: questions.length, date: new Date().toISOString() });
+  renderLeaderboard();
+}
+
+/* Restart to start screen (preserve name) */
+function restartToStart(){
+  showScreen('start');
+  playerNameInput.value = playerName;
+}
+
+/* --------------------------
+   Leaderboard (localStorage)
+   -------------------------- */
+function loadLeaderboard(){
+  try{
+    const raw = localStorage.getItem(STORAGE_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch(e){
+    return [];
+  }
+}
+
+function saveToLeaderboard(entry){
+  const arr = loadLeaderboard();
+  arr.push(entry);
+  // sort by score desc, then by most recent
+  arr.sort((a,b) => {
+    if(b.score !== a.score) return b.score - a.score;
+    return new Date(b.date) - new Date(a.date);
+  });
+  // keep top 200
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(arr.slice(0,200)));
+}
+
+function renderLeaderboard(){
+  const arr = loadLeaderboard();
+  leaderList.innerHTML = '';
+  if(arr.length === 0){
+    leaderList.innerHTML = '<li class="small">Belum ada markah lagi.</li>';
+    return;
+  }
+  const top = arr.slice(0,20);
+  top.forEach((r,i) => {
+    const li = document.createElement('li');
+    const time = new Date(r.date);
+    li.innerHTML = `<strong>${i+1}. ${escapeHtml(r.name)}</strong> — ${r.score}/${r.total} <span class="small">• ${time.toLocaleString()}</span>`;
+    leaderList.appendChild(li);
+  });
+}
+
+function showLeaderboardOnly(){
+  showScreen('end');
+  finalScoreEl.textContent = 'Leaderboard';
+  renderLeaderboard();
+}
+
+function clearLeaderboard(){
+  if(!confirm('Padam semua markah pada leaderboard tempatan?')) return;
+  localStorage.removeItem(STORAGE_KEY);
+  renderLeaderboard();
+}
+
+/* Initialize */
+showScreen('start');
+renderLeaderboard();
+
+</script>
+</body>
+</html>
